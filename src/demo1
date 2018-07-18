@@ -1,0 +1,160 @@
+http://www.iteye.com/magazines/132-Java-NIO
+
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
+import java.nio.CharBuffer;
+import java.nio.IntBuffer;
+import java.nio.channels.FileChannel;
+import java.nio.channels.SocketChannel;
+
+public class Demo1 {
+
+    public void readFile(String path,String model) throws Exception {
+        RandomAccessFile randomAccessFile = new RandomAccessFile(path,model);
+            FileChannel fileChannel = randomAccessFile.getChannel();
+        ByteBuffer byteBuffer = ByteBuffer.allocate(1024);
+        int byteRead = fileChannel.read(byteBuffer);
+        while (byteRead != -1){
+            byteBuffer.flip();
+            System.out.println("byteRead:"+byteRead);
+            while (byteBuffer.hasRemaining()){
+                System.out.print((char) byteBuffer.get());
+            }
+        byteBuffer.clear();
+        byteRead = fileChannel.read(byteBuffer);
+        }
+        randomAccessFile.close();
+    }
+
+    /**
+     * 以下是Java NIO里关键的Buffer实现：
+     *
+     * ByteBuffer
+     * CharBuffer
+     * DoubleBuffer
+     * FloatBuffer
+     * IntBuffer
+     * LongBuffer
+     * ShortBuffer
+     *
+     * 关键属性
+     * capacity    缓冲区大小
+     * position    写数据时表示当前位置，并且会自动移至下一个可写位置（position < capacity）;读数据时，最开始会重置为0,并自动移至下一个可读位置（position < limit）
+     * limit       写数据时 limit = capacity ,读数据时 limit  为写完数据的　position
+     */
+    public void bufferTest(){
+        //设置缓冲区大小,pos = 0,limt = 1024,allocate = 1024
+        ByteBuffer byteBuffer = ByteBuffer.allocate(1024);
+        //向缓冲区添加数据,pos 表示写入数据后在缓冲区的末位置
+        byteBuffer.put("ByteBuffer test".getBytes());//pos = 15
+        //将缓冲区切换成读模式,limt 表示缓冲区中数据量的大小,即是写入数据后的末坐标 pos
+        byteBuffer.flip();//pos = 15,limt = 15
+        //读数据，当pos<limt,return true
+        while (byteBuffer.hasRemaining()) {
+            //缓冲区拿数据
+            System.out.print((char) byteBuffer.get());
+        }
+        //ByteBuffer test
+        System.out.println();
+
+        CharBuffer charBuffer = CharBuffer.allocate(100);
+        charBuffer.put("CharBuffer test");
+        charBuffer.append('d');//return put('d');
+        charBuffer.flip();
+        while (charBuffer.hasRemaining()){
+            System.out.print(charBuffer.get());
+        }
+        //CharBuffer testd
+    }
+    /**
+     * allocate() - 分配一块缓冲区　　
+     * put() -  向缓冲区写数据
+     * get() - 向缓冲区读数据　　
+     * filp() - 将缓冲区从写模式切换到读模式　　
+     * clear() - 从读模式切换到写模式，不会清空数据，但后续写数据会覆盖原来的数据，即使有部分数据没有读，也会被遗忘；　　
+     * compact() - 从读数据切换到写模式，数据不会被清空，会将所有未读的数据copy到缓冲区头部，后续写数据不会覆盖，而是在这些数据之后写数据
+     * mark() - 对position做出标记，配合reset使用
+     * reset() - 将position置为标记值　
+     * @throws Exception
+     */
+    public void markAndResetTest(){
+        CharBuffer charBuffer = CharBuffer.allocate(100);
+        charBuffer.put("markAndReset test");
+        charBuffer.flip();
+        while (charBuffer.hasRemaining()){
+            char c = charBuffer.get();  //pos has pos++;
+            if(c=='A'){
+                charBuffer.mark();
+            }
+            System.out.print(c);
+        }
+        charBuffer.reset();     //this would point the next position of marked.
+        System.out.println("--------"+charBuffer.get());
+
+        //markAndReset test--------n
+    }
+    public void clearAndcompactTest(){
+        CharBuffer charBuffer = CharBuffer.allocate(100);
+        charBuffer.put("clearAndcompact Test");
+        charBuffer.flip();//limit = position; position = 0;
+        while (charBuffer.hasRemaining()){
+            char c = charBuffer.get();  //pos has pos++;
+            if(c=='A'){
+                System.out.println("-----");
+//                charBuffer.compact();//position(limit - position);   limit = capacity;   mark = -1
+                charBuffer.clear();//position = 0;  limit = capacity;  mark = -1;
+                charBuffer.put(" has update ");
+                System.out.println("position:"+charBuffer.position());
+                charBuffer.rewind();//仅　limit = 0;　　这里不用charBuffer.flip();　因为limit = position，当使用clear()
+                while(charBuffer.hasRemaining()){
+                    System.out.print(charBuffer.get());
+                }
+//                char[] cs = new char[24];
+//                charBuffer.get(cs,0,24);
+//                System.out.println(cs);
+
+                // charBuffer.clear();  -----  has update act Test
+                //charBuffer.compact(); ------ ndcompact Test has update
+            }else {
+                System.out.print(c);
+            }
+        }
+
+    }
+
+    public void writeFile() throws Exception {
+        RandomAccessFile randomAccessFile = new RandomAccessFile("C:\\Users\\asnphtl\\Desktop\\testFile\\NIO_T1.txt","rw");
+        FileChannel fileChannel = randomAccessFile.getChannel();
+        ByteBuffer byteBuffer = ByteBuffer.allocate(1024);
+        fileChannel.write(ByteBuffer.wrap("SS".getBytes(),0,2));
+        System.out.println(fileChannel.size());
+
+    }
+
+    public void equalsTest(){
+        ByteBuffer b1 = ByteBuffer.allocate(10);
+        ByteBuffer b2 = ByteBuffer.allocate(10);
+        b1.put("abc".getBytes());
+        b2.put("c".getBytes());
+        b1.flip();
+        b2.flip();
+        while (b1.hasRemaining()){
+            char c = (char) b1.get();
+            if(c == 'b'){
+                System.out.println(b1.equals(b2));
+            }
+        }
+    }
+
+    public static void main(String[] args) throws Exception {
+        Demo1 demo1 = new Demo1();
+//        demo1.readFile("C:\\Users\\asnphtl\\Desktop\\testFile\\NIO_T1.txt","rw");
+//        demo1.writeFile();
+//        demo1.bufferTest();
+//        demo1.markAndResetTest();
+//        demo1.clearAndcompactTest();
+        demo1.equalsTest();
+    }
+}
