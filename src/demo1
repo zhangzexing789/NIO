@@ -1,21 +1,25 @@
 http://www.iteye.com/magazines/132-Java-NIO
-import java.io.BufferedReader;
-import java.io.FileNotFoundException;
+
+import org.junit.Test;
+
+import java.io.OutputStream;
 import java.io.RandomAccessFile;
-import java.net.InetSocketAddress;
-import java.net.ServerSocket;
-import java.net.Socket;
+import java.net.*;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
-import java.nio.IntBuffer;
-import java.nio.channels.FileChannel;
-import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
-import java.nio.channels.SocketChannel;
+import java.nio.channels.*;
 import java.util.Iterator;
 import java.util.Set;
 
 public class Demo1 {
+    /**
+     * 同步异步：强调的是消息通知机制，即消息返回通知的形式不同。同步就是线程进行函数调用，直至返回结果之前都不会做其他事情；异步就是线程进行函数调用会立即得到调用的返回，但不是结果，告诉
+     *          线程可以先做其他事情，等到被调用者有结果了，会通过状态，通知或者毁掉函数来告诉线程可以处理结果了
+     * 阻塞非阻塞：强调线程等待消息的状态。阻塞就是线程在得到消息结果返回之前会一直处于等待，被挂起的状态，不会进行后续的步骤；非阻塞就是线程在立即没有得到返回之前不会被阻塞，可以进行
+     *           后续的其他步骤，再通过轮询的方式来查看返回结果
+     * 同步异步　　　一定有得到消息的返回（不一定有结果）
+     * 阻塞非阻塞　　不一定有消息的返回
+     */
     /**
      * 1、面向缓冲（面向流）：读写数据均需要先进入缓冲区，待缓冲区处于待处理状态，才进行数据读写操作；数据在缓冲区可进行前后移动
      *                 （面向流意味着每次从流中读一个或多个字节，直至读取所有字节，它们没有被缓存在任何地方。此外，它不能前后移动流中的数据。）
@@ -254,16 +258,6 @@ public class Demo1 {
         tagFile.close();
     }
 
-    public void socketTest()throws Exception{
-        InetSocketAddress socketAddress = new InetSocketAddress("localhost",80);
-        SocketChannel socketChannel = SocketChannel.open(socketAddress);
-        Selector selector = Selector.open();
-        SelectionKey key = socketChannel.register(selector,SelectionKey.OP_CONNECT);
-        if(key.isConnectable()){
-            System.out.println("connect!");
-        }
-
-    }
 
     /**
      * selector
@@ -308,6 +302,159 @@ public class Demo1 {
         }
     }
 
+    @Test
+    public void test()throws Exception{
+        DatagramChannel channel = DatagramChannel.open();
+        channel.socket().bind(new InetSocketAddress(9999));
+        String newData = "newdvfdvs";
+
+        ByteBuffer buf = ByteBuffer.allocate(48);
+        buf.clear();
+        buf.put(newData.getBytes());
+        buf.flip();
+
+        int bytesSent = channel.send(buf, new InetSocketAddress("jenkov.com", 80));
+        System.out.println(bytesSent);
+    }
+
+    /**
+     * Java NIO中的SocketChannel是一个连接到TCP网络套接字的通道。
+     * @throws Exception
+     */
+
+    public void socketTest()throws Exception{
+        Socket s = new Socket(InetAddress.getByName("127.0.0.1"),10004);
+        //从 channel 读数据进入　buffer
+        SocketChannel socketChannel = SocketChannel.open(); //创建通道
+        socketChannel.bind(new InetSocketAddress(10004));
+        Demo1.socketSendStr(s);
+        ByteBuffer b1 = ByteBuffer.allocate(1024);
+        int socketRead = socketChannel.read(b1);    // read()方法返回的int值表示读了多少字节进Buffer里。如果返回的是-1，表示已经读到了流的末尾（连接关闭了）。
+        System.out.println("socketRead:"+socketRead);
+
+        //从 buffer 写数据进入　channel
+//        ByteBuffer b2 = ByteBuffer.allocate(1024);
+//        b2.clear();
+//        b2.put("hello1111".getBytes());
+//        b2.flip();
+//        while(b2.hasRemaining()){
+//            socketChannel.write(b2);
+//        }
+    }
+
+    /**
+     * 可以通过以下2种方式创建SocketChannel：
+     * 第一种：打开一个SocketChannel并连接到互联网上的某台服务器。
+     *
+     */
+    public void socketChannelCreateTest1() throws Exception{
+
+        SocketChannel socketChannel = SocketChannel.open();
+        socketChannel.configureBlocking(false);     //设置非阻塞
+        socketChannel.connect(new InetSocketAddress("www.baidu.com",80));
+        //调用 connect()建立连接，但是在成功连接之前可能就已经返回了
+        //finishConnect() 确认连接是否成功建立
+
+        while (true) {
+            if (!socketChannel.finishConnect()) {
+                System.out.println("连接还没建立，但是我可以做其他事情！");
+            } else {
+                while (socketChannel.finishConnect()) {
+                    System.out.println("connect!");
+                }
+            }
+        }
+    }
+
+    /**
+     * 第二种： 一个新连接到达ServerSocketChannel时，会创建一个SocketChannel。
+     * Java NIO中的 ServerSocketChannel 是一个可以监听新进来的TCP连接的通道
+     * @throws Exception
+     */
+
+    public void socketChannelCreateTest2() throws Exception{
+        ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
+        serverSocketChannel.socket().bind(new InetSocketAddress(9999));// 监听端口
+        //accept()方法会一直阻塞到有新连接到达
+        while(true){
+            System.out.println("开始阻塞．．．");
+            SocketChannel socketChannel = serverSocketChannel.accept();
+            //do something with socketChannel...
+        }
+    }
+    public void socketChannelCreateTest3() throws Exception{
+        ServerSocketChannel serverSocketChannel = ServerSocketChannel.open();
+        serverSocketChannel.socket().bind(new InetSocketAddress(9999));// 监听端口
+        serverSocketChannel.configureBlocking(false); //非阻塞状态
+
+        System.out.println("开始监听．．．");
+        while(true){
+            SocketChannel socketChannel = serverSocketChannel.accept();
+            if(socketChannel == null){
+                System.out.println("没有连接进入，塞了，我先做其他事");
+            }else{
+                System.out.println("有连接");
+            }
+        }
+    }
+
+    /**
+     * Java NIO中的DatagramChannel是一个能收发UDP包的通道。因为UDP是无连接的网络协议，所以不能像其它通道那样读取和写入。
+     *
+     */
+    public void datagramChannelTest1()throws Exception{
+
+        DatagramChannel channel = DatagramChannel.open();
+        channel.socket().bind(new InetSocketAddress(10007));
+        ByteBuffer b1 = ByteBuffer.allocate(1024);
+
+        Demo1.datagramSocketSendStr(new DatagramSocket());
+
+        channel.receive(b1);    //receive()方法会将接收到的数据包内容复制到指定的Buffer. 如果Buffer容不下收到的数据，多出的数据将被丢弃。
+        b1.flip();
+        while (b1.hasRemaining()){
+            System.out.println((char) b1.get());
+        }
+
+//        ByteBuffer buf = ByteBuffer.allocate(1024);
+//        buf.clear();
+//        buf.put("hello".getBytes());
+//        buf.flip();
+//        int bytesSent = channel.send(buf, new InetSocketAddress("jenkov.com", 80)); //成功与否都没有通知
+//        System.out.println("发送的字节数："+bytesSent);// 事实上线程已经阻塞在建立连接那里
+    }
+
+    /**
+     * 将DatagramChannel“连接”到网络中的特定地址的。由于UDP是无连接的，
+     * 连接到特定地址并不会像TCP通道那样创建一个真正的连接。而是锁住DatagramChannel ，让其只能从特定地址收发数据。
+     * @throws Exception
+     */
+    public void datagramChannelTest2()throws Exception{
+        DatagramChannel channel = DatagramChannel.open();
+        channel.socket().connect(new InetSocketAddress(9999));
+        ByteBuffer b1 = ByteBuffer.allocate(1024);
+        int readCount = channel.read(b1);
+
+        ByteBuffer buf = ByteBuffer.allocate(1024);
+        buf.clear();
+        buf.put("hello".getBytes());
+        buf.flip();
+        int bytesSent = channel.write(buf);
+        System.out.println("："+bytesSent);
+    }
+
+    public static void datagramSocketSendStr(DatagramSocket dgs) throws Exception{
+        byte[] buf="hello".getBytes();
+        DatagramPacket dgp=new DatagramPacket(buf, 0, buf.length,InetAddress.getByName("127.0.0.1"), 10007);
+        dgs.send(dgp);
+    }
+
+    public static void socketSendStr(Socket s)throws Exception{
+        ServerSocket ss = new ServerSocket(10003);
+        s = ss.accept();
+        OutputStream o = s.getOutputStream();
+        o.write("hello".getBytes());
+    }
 
     public static void main(String[] args) throws Exception {
         Demo1 demo1 = new Demo1();
@@ -323,6 +470,10 @@ public class Demo1 {
 //        demo1.tranferTotTst("C:\\Users\\asnphtl\\Desktop\\testFile\\fromFile.txt","C:\\Users\\asnphtl\\Desktop\\testFile\\toFile.txt");
 //        demo1.selectorTest();
         demo1.socketTest();
+//        demo1.socketChannelCreateTest1();
+//        demo1.socketChannelCreateTest2();
+//        demo1.socketChannelCreateTest3();
+//        demo1.datagramChannelTest1();
     }
 }
 
