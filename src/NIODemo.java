@@ -301,31 +301,24 @@ public class NIODemo {
     }
 
     @Test
-    public void test()throws Exception{
-        DatagramChannel channel = DatagramChannel.open();
-        channel.socket().bind(new InetSocketAddress(9999));
-        String newData = "newdvfdvs";
-
-        ByteBuffer buf = ByteBuffer.allocate(48);
-        buf.clear();
-        buf.put(newData.getBytes());
-        buf.flip();
-
-        int bytesSent = channel.send(buf, new InetSocketAddress("jenkov.com", 80));
-        System.out.println(bytesSent);
+    public void getInet() throws Exception{
+        InetAddress inetAddress =  InetAddress.getByName("www.zexing123.com");
+        System.out.println(inetAddress.getAddress());
+        System.out.println(inetAddress.getHostName());
+        System.out.println(inetAddress.getHostAddress());
     }
+
 
     /**
      * Java NIO中的SocketChannel是一个连接到TCP网络套接字的通道。
      * @throws Exception
      */
-
     public void socketTest()throws Exception{
-        Socket s = new Socket(InetAddress.getByName("127.0.0.1"),10004);
+        Socket s = new Socket(InetAddress.getByName("localhost"),9999);
+        NIODemo.socketSendStr();
         //从 channel 读数据进入　buffer
         SocketChannel socketChannel = SocketChannel.open(); //创建通道
-        socketChannel.bind(new InetSocketAddress(10004));
-        NIODemo.socketSendStr(s);
+        socketChannel.bind(new InetSocketAddress(9999));
         ByteBuffer b1 = ByteBuffer.allocate(1024);
         int socketRead = socketChannel.read(b1);    // read()方法返回的int值表示读了多少字节进Buffer里。如果返回的是-1，表示已经读到了流的末尾（连接关闭了）。
         System.out.println("socketRead:"+socketRead);
@@ -340,26 +333,36 @@ public class NIODemo {
 //        }
     }
 
+    public static void socketSendStr()throws Exception{
+        ServerSocket ss = new ServerSocket(9999);
+        Socket s = ss.accept();
+        OutputStream o = s.getOutputStream();
+        o.write("hello".getBytes());
+    }
+
     /**
      * 可以通过以下2种方式创建SocketChannel：
      * 第一种：打开一个SocketChannel并连接到互联网上的某台服务器。
      *
      */
+    @Test
     public void socketChannelCreateTest1() throws Exception{
 
         SocketChannel socketChannel = SocketChannel.open();
         socketChannel.configureBlocking(false);     //设置非阻塞
-        socketChannel.connect(new InetSocketAddress("www.baidu.com",80));
+//        socketChannel.connect(new InetSocketAddress("www.baidu.com",80));
+        socketChannel.connect(new InetSocketAddress("127.0.0.1",80));
         //调用 connect()建立连接，但是在成功连接之前可能就已经返回了
         //finishConnect() 确认连接是否成功建立
-
         while (true) {
             if (!socketChannel.finishConnect()) {
                 System.out.println("连接还没建立，但是我可以做其他事情！");
             } else {
                 while (socketChannel.finishConnect()) {
                     System.out.println("connect!");
+                    break;
                 }
+                break;
             }
         }
     }
@@ -445,13 +448,6 @@ public class NIODemo {
         byte[] buf="hello".getBytes();
         DatagramPacket dgp=new DatagramPacket(buf, 0, buf.length,InetAddress.getByName("127.0.0.1"), 10007);
         dgs.send(dgp);
-    }
-
-    public static void socketSendStr(Socket s)throws Exception{
-        ServerSocket ss = new ServerSocket(10003);
-        s = ss.accept();
-        OutputStream o = s.getOutputStream();
-        o.write("hello".getBytes());
     }
 
     public static void main(String[] args) throws Exception {
